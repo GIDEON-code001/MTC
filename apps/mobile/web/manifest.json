@@ -1,0 +1,9 @@
+{
+  "name": "BodaBoss",
+  "short_name": "BodaBoss",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#F7F8F6",
+  "theme_color": "#123D34",
+  "description": "BodaBoss rider jobs, reporting, and remittance for Uganda."
+}

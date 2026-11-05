@@ -1,0 +1,30 @@
+# Dart / Flutter
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+build/
+coverage/
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+
+# .NET
+**/bin/
+**/obj/
+*.user
+*.suo
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+**/appsettings.Development.json
+
+# Editors and OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

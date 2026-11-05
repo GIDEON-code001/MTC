@@ -1,0 +1,44 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB in .env}
+      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - bodaboss-postgres:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/001-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: src/BodaBoss.Api/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
+      Cors__AllowedOrigins__0: ${APP_ORIGIN:-http://localhost:5000}
+      ConnectionStrings__Postgres: Host=db;Port=5432;Database=${POSTGRES_DB:?Set POSTGRES_DB};Username=${POSTGRES_USER:?Set POSTGRES_USER};Password=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+      Jwt__SigningKey: ${JWT_SIGNING_KEY:?Set JWT_SIGNING_KEY in .env}
+      Jwt__Issuer: ${JWT_ISSUER:-BodaBoss}
+      Jwt__Audience: ${JWT_AUDIENCE:-BodaBoss.Mobile}
+      Bootstrap__TenantName: ${BOOTSTRAP_TENANT_NAME:-BodaBoss Uganda}
+      Bootstrap__TenantId: ${BOOTSTRAP_TENANT_ID:-11111111-1111-4111-8111-111111111111}
+      Bootstrap__Email: ${BOOTSTRAP_EMAIL:-}
+      Bootstrap__Password: ${BOOTSTRAP_PASSWORD:-}
+    ports:
+      - "${API_PORT:-8080}:8080"
+
+volumes:
+  bodaboss-postgres:
