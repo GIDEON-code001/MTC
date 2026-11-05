@@ -44,6 +44,10 @@ npm run dev
 
 Configure `NEXT_PUBLIC_API_BASE_URL` and `NEXT_PUBLIC_TENANT_ID` in `apps/admin/.env.local` as needed. The development server runs on port `5000`.
 
+## Render preview deployment
+
+Configure the admin Node service with root directory `apps/admin`, build command `npm ci && npm run build`, and start command `npm run start`. Deploy the API as a Docker web service with repository root as its Docker context and `src/BodaBoss.Api/Dockerfile` as its Dockerfile. Set the API's `DATABASE_URL` from Render Postgres and `Database__InitializeSchema=true` to initialize an empty preview database. Set `Jwt__SigningKey` to a generated secret and `Cors__AllowedOrigins__0` to the admin service's HTTPS URL. Before enabling sign-in, provision `Bootstrap__Email` and `Bootstrap__Password` together in Render's secret environment editor; use a password of at least 12 characters. Set `NEXT_PUBLIC_API_BASE_URL` to the API's HTTPS URL before building the admin service. Render free services can sleep, and free databases may be temporary; use backed-up, paid infrastructure for production.
+
 ## API outline
 
 - `POST /api/v1/auth/login` and `POST /api/v1/auth/refresh` — tenant-scoped login and rotating refresh tokens
@@ -55,7 +59,7 @@ Configure `NEXT_PUBLIC_API_BASE_URL` and `NEXT_PUBLIC_TENANT_ID` in `apps/admin/
 - `GET /api/v1/motorcycles/{id}/locations` — GPS history
 - `GET|POST /api/v1/payments` — administrative payment records in integer UGX
 
-Business endpoints require a bearer token and are tenant-scoped. Paginated lists accept `page` and `pageSize` (maximum 100). Rider accounts are provisioned by an authorized fleet manager; `/api/v1/riders` requires a password of at least 12 characters. The bootstrap administrator is created only when `Bootstrap__Email` and `Bootstrap__Password` are configured. Keep those values configured on restarts; they do not reset an existing password. The tenant ID defaults to `11111111-1111-4111-8111-111111111111`.
+Business endpoints require a bearer token and are tenant-scoped. Paginated lists accept `page` and `pageSize` (maximum 100). Rider accounts are provisioned by an authorized fleet manager; `/api/v1/riders` requires a password of at least 12 characters. The bootstrap administrator is created when both `Bootstrap__Email` and `Bootstrap__Password` are configured. Keep those values configured on restarts; they do not reset an existing password. The tenant ID defaults to `11111111-1111-4111-8111-111111111111`.
 
 Run API unit tests with:
 

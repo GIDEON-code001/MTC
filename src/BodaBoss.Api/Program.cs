@@ -53,9 +53,9 @@ if (trustedProxies.Length > 0)
         }
     });
 }
+var postgresConnectionString = PostgresConnectionString.FromConfiguration(builder.Configuration);
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("Postgres")
-        ?? throw new InvalidOperationException("ConnectionStrings:Postgres is required.")));
+    options.UseNpgsql(postgresConnectionString));
 builder.Services.AddExceptionHandler<ApiExceptionHandler>();
 builder.Services.AddSingleton<AuthTokenService>();
 builder.Services.AddMediatR(options => options.RegisterServicesFromAssembly(typeof(Program).Assembly));
@@ -1235,12 +1235,13 @@ fleetApi.MapGet("/motorcycles/{id:guid}/locations", async (
 
 var bootstrapEmail = builder.Configuration["Bootstrap:Email"];
 var bootstrapPassword = builder.Configuration["Bootstrap:Password"];
-if (string.IsNullOrWhiteSpace(bootstrapEmail) || string.IsNullOrWhiteSpace(bootstrapPassword))
+var hasBootstrapEmail = !string.IsNullOrWhiteSpace(bootstrapEmail);
+var hasBootstrapPassword = !string.IsNullOrWhiteSpace(bootstrapPassword);
+if (hasBootstrapEmail != hasBootstrapPassword)
 {
-    throw new InvalidOperationException("Bootstrap:Email and Bootstrap:Password are required to provision the first administrator.");
+    throw new InvalidOperationException("Bootstrap:Email and Bootstrap:Password must be configured together.");
 }
-
-if (bootstrapPassword.Length < 12)
+if (hasBootstrapPassword && bootstrapPassword!.Length < 12)
 {
     throw new InvalidOperationException("Bootstrap:Password must contain at least 12 characters.");
 }
@@ -1252,32 +1253,46 @@ if (!Guid.TryParse(builder.Configuration["Bootstrap:TenantId"], out var tenantId
 
 await using var scope = app.Services.CreateAsyncScope();
 var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-var normalizedEmail = bootstrapEmail.Trim().ToLowerInvariant();
-var existingUser = await db.Users.IgnoreQueryFilters()
-    .SingleOrDefaultAsync(x => x.TenantId == tenantId && x.Email == normalizedEmail);
-if (existingUser is null)
+if (builder.Configuration.GetValue<bool>("Database:InitializeSchema"))
 {
-    var tenant = await db.Tenants.FindAsync(tenantId);
-    if (tenant is null)
+    await DatabaseSchemaInitializer.InitializeIfEmptyAsync(
+        postgresConnectionString,
+        Path.Combine(AppContext.BaseDirectory, "database", "init.sql"));
+}
+if (!hasBootstrapEmail)
+{
+    app.Logger.LogWarning(
+        "No bootstrap administrator was provisioned. Configure Bootstrap:Email and Bootstrap:Password to enable sign-in.");
+}
+else
+{
+    var normalizedEmail = bootstrapEmail!.Trim().ToLowerInvariant();
+    var existingUser = await db.Users.IgnoreQueryFilters()
+        .SingleOrDefaultAsync(x => x.TenantId == tenantId && x.Email == normalizedEmail);
+    if (existingUser is null)
     {
-        tenant = new Tenant
+        var tenant = await db.Tenants.FindAsync(tenantId);
+        if (tenant is null)
         {
-            Id = tenantId,
-            Name = builder.Configuration["Bootstrap:TenantName"] ?? "BodaBoss Fleet"
+            tenant = new Tenant
+            {
+                Id = tenantId,
+                Name = builder.Configuration["Bootstrap:TenantName"] ?? "BodaBoss Fleet"
+            };
+            db.Tenants.Add(tenant);
+            await db.SaveChangesAsync();
+        }
+
+        var user = new FleetUser
+        {
+            TenantId = tenantId,
+            Email = normalizedEmail,
+            Role = Roles.SuperAdmin,
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword(bootstrapPassword!)
         };
-        db.Tenants.Add(tenant);
+        db.Users.Add(user);
         await db.SaveChangesAsync();
     }
-
-    var user = new FleetUser
-    {
-        TenantId = tenantId,
-        Email = normalizedEmail,
-        Role = Roles.SuperAdmin,
-        PasswordHash = BCrypt.Net.BCrypt.HashPassword(bootstrapPassword)
-    };
-    db.Users.Add(user);
-    await db.SaveChangesAsync();
 }
 
 app.Run();

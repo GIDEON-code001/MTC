@@ -29,6 +29,7 @@ services:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
       Cors__AllowedOrigins__0: ${APP_ORIGIN:-http://localhost:5000}
+      Database__InitializeSchema: ${DATABASE_INITIALIZE_SCHEMA:-false}
       ConnectionStrings__Postgres: Host=db;Port=5432;Database=${POSTGRES_DB:?Set POSTGRES_DB};Username=${POSTGRES_USER:?Set POSTGRES_USER};Password=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
       Jwt__SigningKey: ${JWT_SIGNING_KEY:?Set JWT_SIGNING_KEY in .env}
       Jwt__Issuer: ${JWT_ISSUER:-BodaBoss}
