@@ -44,9 +44,30 @@ npm run dev
 
 Configure `NEXT_PUBLIC_API_BASE_URL` and `NEXT_PUBLIC_TENANT_ID` in `apps/admin/.env.local` as needed. The development server runs on port `5000`.
 
-## Render preview deployment
+## Oracle Cloud Always Free deployment
 
-Configure the admin Node service with root directory `apps/admin`, build command `npm ci && npm run build`, and start command `npm run start`. Deploy the API as a Docker web service with repository root as its Docker context and `src/BodaBoss.Api/Dockerfile` as its Dockerfile. Set the API's `DATABASE_URL` from Render Postgres and `Database__InitializeSchema=true` to initialize an empty preview database. Set `Jwt__SigningKey` to a generated secret and `Cors__AllowedOrigins__0` to the admin service's HTTPS URL. Before enabling sign-in, provision `Bootstrap__Email` and `Bootstrap__Password` together in Render's secret environment editor; use a password of at least 12 characters. Set `NEXT_PUBLIC_API_BASE_URL` to the API's HTTPS URL before building the admin service. Render free services can sleep, and free databases may be temporary; use backed-up, paid infrastructure for production.
+The OCI Compose stack runs PostgreSQL, the ASP.NET Core API, the Next.js admin portal, and Caddy on one VM. PostgreSQL and the application containers are not published directly; Caddy routes HTTPS traffic to the admin portal and `/api/*` plus `/health/*` requests to the API. This single-VM setup is for a preview or small pilot, not a high-availability deployment or a validated 10,000-motorcycle production environment. OCI Always Free resources have limits and may be reclaimed when idle; keep independent database backups.
+
+1. Create an Oracle Cloud Free Tier account and provision only an **Always Free eligible** Ubuntu Ampere A1 VM (up to 2 OCPUs and 12 GB memory under the current free limits). Do not upgrade the account or choose paid resources. Free capacity may not be available in every region.
+2. Assign a public IP and configure OCI network ingress for SSH (restrict port 22 to your own IP when possible) and TCP ports 80 and 443. Point a domain you control to the VM's public IP with a DNS A record; remove an incorrect AAAA record if the VM has no IPv6.
+3. SSH into the VM using the private key downloaded during instance creation. Keep that key on your computer; never send it through chat. Install Git, OpenSSL, Docker Engine, and the Docker Compose v2 plugin, then clone this public repository:
+
+   ```sh
+   git clone https://github.com/GIDEON-code001/MTC.git
+   cd MTC
+   ```
+
+4. After the domain resolves to the VM and ports 80/443 are reachable, create the private environment file and launch the services:
+
+   ```sh
+   bash deployment/configure-oci.sh
+   bash deployment/deploy-oci.sh
+   ```
+
+   The configure script prompts for the public domain, certificate email, and bootstrap admin credentials. It generates database/JWT secrets on the VM and writes them to `.env.oci` with owner-only permissions. It will not overwrite an existing secret file. Do not copy `.env.oci` into Git, logs, or chat.
+5. Verify the deployment at `https://<your-domain>/health/ready` and open `https://<your-domain>`. Use the administrator credentials entered during configuration. For the rider app, set its `API_BASE_URL` to `https://<your-domain>`.
+
+The domain must resolve publicly before Caddy can issue a trusted HTTPS certificate. The VM, OS updates, firewall rules, backups, and monitoring remain your responsibility. Do not deploy real fleet or payment data until backups and recovery have been tested. Oracle's Free Tier and Always Free terms and capacity limits apply; this stack does not guarantee permanent free capacity or production availability.
 
 ## API outline
 
